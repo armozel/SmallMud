@@ -1,11 +1,14 @@
 {
-	"commentStamp" : "",
+	"commentStamp" : "Armozel 2/13/2023 21:41",
 	"super" : "Object",
-	"category" : "SmallMud",
+	"category" : "SmallMud-Network",
 	"classinstvars" : [ ],
 	"pools" : [ ],
 	"classvars" : [ ],
-	"instvars" : [ ],
+	"instvars" : [
+		"socket",
+		"port"
+	],
 	"name" : "SmallMudConnectionListener",
 	"type" : "normal"
 }
