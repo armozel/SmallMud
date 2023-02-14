@@ -1,6 +1,6 @@
-'From Cuis 6.0 [latest update: #5608] on 14 February 2023 at 12:05:33 pm'!
+'From Cuis 6.0 [latest update: #5608] on 14 February 2023 at 2:22:40 pm'!
 'Description '!
-!provides: 'SmallMud' 1 5!
+!provides: 'SmallMud' 1 7!
 SystemOrganization addCategory: 'SmallMud-Core'!
 SystemOrganization addCategory: 'SmallMud-Network'!
 SystemOrganization addCategory: 'SmallMud-Utils'!
@@ -76,12 +76,12 @@ initialize
 name
 	^name! !
 
-!SmallMudServer methodsFor: 'as yet unclassified' stamp: 'RPH 2/14/2023 12:04:42'!
+!SmallMudServer methodsFor: 'as yet unclassified' stamp: 'RPH 2/14/2023 13:48:06'!
 destroy
 	serverProcess ifNotNil: [
 		serverProcess terminate.
 		serverProcess _ nil].
-	listener ifNotNil: [
+	listenerSocket ifNotNil: [
 		listenerSocket destroy.
 		listenerSocket _ nil].
 	(connections notNil and: [connections notEmpty])
@@ -89,48 +89,49 @@ destroy
 			connections do: [:c | c destroy].
 			connections _ OrderedCollection new]! !
 
-!SmallMudServer methodsFor: 'as yet unclassified' stamp: 'RPH 2/14/2023 12:03:18'!
+!SmallMudServer methodsFor: 'as yet unclassified' stamp: 'RPH 2/14/2023 13:51:41'!
 initPort: aPortNumber
 	accessSema _ Semaphore forMutualExclusion.
 	connections _ OrderedCollection new.
-	listenerSocket _ SmallMudSocketListener port: aPortNumber backlogSize: 10.
-	listenerSocket addSocketAcceptor: self.
+	listenerSocket _ SmallMudSocketListener port: aPortNumber backlogSize: 10 acceptor: self.
 	self setupServerProcess
 	! !
 
-!SmallMudServer methodsFor: 'as yet unclassified' stamp: 'RPH 2/14/2023 11:54:32'!
+!SmallMudServer methodsFor: 'as yet unclassified' stamp: 'RPH 2/14/2023 14:19:46'!
 onAcceptConnection: aSocket
-	accessSema critical: [connections addLast: (SocketStream on: aSocket)] ! !
+	accessSema critical: [connections addLast: (SocketStream on: aSocket)]! !
 
-!SmallMudServer methodsFor: 'as yet unclassified' stamp: 'RPH 2/14/2023 11:59:49'!
+!SmallMudServer methodsFor: 'as yet unclassified' stamp: 'RPH 2/14/2023 14:20:21'!
 processMessages
 	accessSema critical: [
 		connections do: [:c |
 			|msg|
 			msg _ c nextLineCrLf.
 			(msg notNil and: [msg notEmpty]) 
-				ifTrue: [c sendCommand: 'ECHO: ', msg]
+				ifTrue: [
+					Transcript show: 'Received message: ', msg asString.
+					c sendCommand: 'ECHO: ', msg]
 		]
 	]! !
 
-!SmallMudServer methodsFor: 'as yet unclassified' stamp: 'RPH 2/14/2023 11:53:33'!
+!SmallMudServer methodsFor: 'as yet unclassified' stamp: 'RPH 2/14/2023 14:21:05'!
 pruneStaleConnections
 	accessSema critical: [
 		|foundStale|
 		foundStale _ false. 
-		connections do: [:c |
-			c isConnected ifTrue: [
+		 connections do: [:c |
+			c isConnected ifFalse: [
 				c destroy.
 				foundStale _ true]].
 		foundStale ifTrue: [
 			connections _ connections select: [:c | c isConnected]]
-		]! !
+	]! !
 
-!SmallMudServer methodsFor: 'as yet unclassified' stamp: 'RPH 2/14/2023 11:53:55'!
+!SmallMudServer methodsFor: 'as yet unclassified' stamp: 'RPH 2/14/2023 13:47:44'!
 serverLoop
 	[
 		"I will update this to be a user defined tick rate"
-		250 milliSeconds asDelay wait.
+		100 milliSeconds asDelay wait.
 		self processMessages.
 		self pruneStaleConnections.
 	] repeat.! !
@@ -147,12 +148,6 @@ setupServerProcess
 port: aPortNumber
 	^self new initPort: aPortNumber! !
 
-!SmallMudSocketListener methodsFor: 'public' stamp: 'RPH 2/14/2023 11:43:46'!
-addSocketAcceptor: anObject
-	anObject ifNil: [^false].
-	self when: #acceptConnection send: #onAcceptConnection: to: anObject.
-	^true! !
-
 !SmallMudSocketListener methodsFor: 'public' stamp: 'RPH 2/14/2023 11:20:30'!
 destroy
 	listenProcess ifNotNil: [
@@ -162,45 +157,52 @@ destroy
 		socket destroy.
 		socket _ nil]! !
 
-!SmallMudSocketListener methodsFor: 'public' stamp: 'RPH 2/14/2023 11:16:17'!
-initPort: aPortNumber backlogSize: aBacklogSize
+!SmallMudSocketListener methodsFor: 'public' stamp: 'RPH 2/14/2023 13:50:39'!
+initPort: aPortNumber backlogSize: aBacklogSize acceptor: anObject
 	port _ aPortNumber.
 	backlogSize _ aBacklogSize.
+	self when: #acceptConnection send: #onAcceptConnection: to: anObject.
+	self setupSocket.
 	self setupProcess! !
 
 !SmallMudSocketListener methodsFor: 'public' stamp: 'RPH 2/14/2023 11:20:52'!
 isValid
 	^listenProcess notNil! !
 
-!SmallMudSocketListener methodsFor: 'private' stamp: 'RPH 2/14/2023 11:19:37'!
+!SmallMudSocketListener methodsFor: 'private' stamp: 'RPH 2/14/2023 14:22:32'!
 listenLoop
-	|connection|
-	socket _ Socket newTCP.
-	socket listenOn: port backlogSize: backlogSize.
-	
+
 	[
-		socket isValid ifFalse: [
-				socket destroy.
-				10 milliSeconds asDelay wait.
-				^self listenLoop].
-		connection _ socket waitForAcceptFor: 10 ifTimedOut: [nil].
+		|connection|
+		connection _ 
+			socket waitForAcceptFor: 10 ifTimedOut: [nil].
 		(connection notNil and:[connection isConnected]) ifTrue: [
 			self triggerEvent: #acceptConnection with: connection.
 			self changed: self].
 		connection _ nil.
 	] repeat! !
 
-!SmallMudSocketListener methodsFor: 'private' stamp: 'RPH 2/14/2023 11:17:08'!
+!SmallMudSocketListener methodsFor: 'private' stamp: 'RPH 2/14/2023 13:46:11'!
 setupProcess
 	listenProcess ifNotNil: [^false].
 	listenProcess _ [self listenLoop] newProcess.
 	listenProcess name: 'SmallMudSocketListener'.
 	listenProcess priority: Processor highIOPriority.
-	listenProcess resume.! !
+	listenProcess resume.
+	^true! !
 
-!SmallMudSocketListener class methodsFor: 'as yet unclassified' stamp: 'RPH 2/14/2023 11:21:19'!
-port: aPortNumber backlogSize: aBacklogSize.
-	^self new initPort: aPortNumber backlogSize: aBacklogSize! !
+!SmallMudSocketListener methodsFor: 'private' stamp: 'RPH 2/14/2023 14:10:28'!
+setupSocket
+	socket ifNotNil: [^false].
+	socket _ Socket newTCP.
+	socket initializeNetwork.
+	socket listenOn: port backlogSize: backlogSize.
+	Transcript show: 'Listener Socket: ', socket asString.
+	^true! !
+
+!SmallMudSocketListener class methodsFor: 'as yet unclassified' stamp: 'RPH 2/14/2023 13:51:13'!
+port: aPortNumber backlogSize: aBacklogSize acceptor: anObject
+	^self new initPort: aPortNumber backlogSize: aBacklogSize acceptor: anObject! !
 
 !AnsiCode methodsFor: 'as yet unclassified' stamp: 'RPH 2/14/2023 10:23:15'!
 code
