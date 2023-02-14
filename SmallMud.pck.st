@@ -1,6 +1,6 @@
-'From Cuis 6.0 [latest update: #5608] on 14 February 2023 at 11:22:42 am'!
+'From Cuis 6.0 [latest update: #5608] on 14 February 2023 at 12:05:33 pm'!
 'Description '!
-!provides: 'SmallMud' 1 4!
+!provides: 'SmallMud' 1 5!
 SystemOrganization addCategory: 'SmallMud-Core'!
 SystemOrganization addCategory: 'SmallMud-Network'!
 SystemOrganization addCategory: 'SmallMud-Utils'!
@@ -19,7 +19,7 @@ SmallMudCommand class
 
 !classDefinition: #SmallMudServer category: 'SmallMud-Network'!
 Object subclass: #SmallMudServer
-	instanceVariableNames: 'listener connections'
+	instanceVariableNames: 'accessSema connections listenerSocket serverProcess'
 	classVariableNames: ''
 	poolDictionaries: ''
 	category: 'SmallMud-Network'!
@@ -75,6 +75,83 @@ initialize
 !SmallMudCommand methodsFor: 'as yet unclassified' stamp: 'RPH 2/14/2023 09:58:31'!
 name
 	^name! !
+
+!SmallMudServer methodsFor: 'as yet unclassified' stamp: 'RPH 2/14/2023 12:04:42'!
+destroy
+	serverProcess ifNotNil: [
+		serverProcess terminate.
+		serverProcess _ nil].
+	listener ifNotNil: [
+		listenerSocket destroy.
+		listenerSocket _ nil].
+	(connections notNil and: [connections notEmpty])
+		ifTrue: [
+			connections do: [:c | c destroy].
+			connections _ OrderedCollection new]! !
+
+!SmallMudServer methodsFor: 'as yet unclassified' stamp: 'RPH 2/14/2023 12:03:18'!
+initPort: aPortNumber
+	accessSema _ Semaphore forMutualExclusion.
+	connections _ OrderedCollection new.
+	listenerSocket _ SmallMudSocketListener port: aPortNumber backlogSize: 10.
+	listenerSocket addSocketAcceptor: self.
+	self setupServerProcess
+	! !
+
+!SmallMudServer methodsFor: 'as yet unclassified' stamp: 'RPH 2/14/2023 11:54:32'!
+onAcceptConnection: aSocket
+	accessSema critical: [connections addLast: (SocketStream on: aSocket)] ! !
+
+!SmallMudServer methodsFor: 'as yet unclassified' stamp: 'RPH 2/14/2023 11:59:49'!
+processMessages
+	accessSema critical: [
+		connections do: [:c |
+			|msg|
+			msg _ c nextLineCrLf.
+			(msg notNil and: [msg notEmpty]) 
+				ifTrue: [c sendCommand: 'ECHO: ', msg]
+		]
+	]! !
+
+!SmallMudServer methodsFor: 'as yet unclassified' stamp: 'RPH 2/14/2023 11:53:33'!
+pruneStaleConnections
+	accessSema critical: [
+		|foundStale|
+		foundStale _ false. 
+		connections do: [:c |
+			c isConnected ifTrue: [
+				c destroy.
+				foundStale _ true]].
+		foundStale ifTrue: [
+			connections _ connections select: [:c | c isConnected]]
+		]! !
+
+!SmallMudServer methodsFor: 'as yet unclassified' stamp: 'RPH 2/14/2023 11:53:55'!
+serverLoop
+	[
+		"I will update this to be a user defined tick rate"
+		250 milliSeconds asDelay wait.
+		self processMessages.
+		self pruneStaleConnections.
+	] repeat.! !
+
+!SmallMudServer methodsFor: 'as yet unclassified' stamp: 'RPH 2/14/2023 12:01:57'!
+setupServerProcess
+	serverProcess ifNotNil: [^false].
+	serverProcess _ [self serverLoop] newProcess.
+	serverProcess name: 'SmallMudServer'.
+	serverProcess priority: Processor highIOPriority.
+	serverProcess resume.! !
+
+!SmallMudServer class methodsFor: 'as yet unclassified' stamp: 'RPH 2/14/2023 12:00:11'!
+port: aPortNumber
+	^self new initPort: aPortNumber! !
+
+!SmallMudSocketListener methodsFor: 'public' stamp: 'RPH 2/14/2023 11:43:46'!
+addSocketAcceptor: anObject
+	anObject ifNil: [^false].
+	self when: #acceptConnection send: #onAcceptConnection: to: anObject.
+	^true! !
 
 !SmallMudSocketListener methodsFor: 'public' stamp: 'RPH 2/14/2023 11:20:30'!
 destroy
