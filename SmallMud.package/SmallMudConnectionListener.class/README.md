@@ -1,1 +1,0 @@
-I am a telnet socket listener class made for SmallMud. I will not be complex enough to be extensible beyond this package, do not derive if you can help it.
