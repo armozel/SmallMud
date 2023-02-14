@@ -1,6 +1,6 @@
-'From Cuis 6.0 [latest update: #5608] on 14 February 2023 at 10:42:37 am'!
+'From Cuis 6.0 [latest update: #5608] on 14 February 2023 at 11:22:42 am'!
 'Description '!
-!provides: 'SmallMud' 1 3!
+!provides: 'SmallMud' 1 4!
 SystemOrganization addCategory: 'SmallMud-Core'!
 SystemOrganization addCategory: 'SmallMud-Network'!
 SystemOrganization addCategory: 'SmallMud-Utils'!
@@ -15,6 +15,26 @@ Object subclass: #SmallMudCommand
 	category: 'SmallMud-Core'!
 !classDefinition: 'SmallMudCommand class' category: 'SmallMud-Core'!
 SmallMudCommand class
+	instanceVariableNames: ''!
+
+!classDefinition: #SmallMudServer category: 'SmallMud-Network'!
+Object subclass: #SmallMudServer
+	instanceVariableNames: 'listener connections'
+	classVariableNames: ''
+	poolDictionaries: ''
+	category: 'SmallMud-Network'!
+!classDefinition: 'SmallMudServer class' category: 'SmallMud-Network'!
+SmallMudServer class
+	instanceVariableNames: ''!
+
+!classDefinition: #SmallMudSocketListener category: 'SmallMud-Network'!
+Object subclass: #SmallMudSocketListener
+	instanceVariableNames: 'socket port backlogSize listenProcess'
+	classVariableNames: ''
+	poolDictionaries: ''
+	category: 'SmallMud-Network'!
+!classDefinition: 'SmallMudSocketListener class' category: 'SmallMud-Network'!
+SmallMudSocketListener class
 	instanceVariableNames: ''!
 
 !classDefinition: #AnsiCode category: 'SmallMud-Utils'!
@@ -55,6 +75,55 @@ initialize
 !SmallMudCommand methodsFor: 'as yet unclassified' stamp: 'RPH 2/14/2023 09:58:31'!
 name
 	^name! !
+
+!SmallMudSocketListener methodsFor: 'public' stamp: 'RPH 2/14/2023 11:20:30'!
+destroy
+	listenProcess ifNotNil: [
+		listenProcess terminate.
+		listenProcess _ nil].
+	socket ifNotNil: [
+		socket destroy.
+		socket _ nil]! !
+
+!SmallMudSocketListener methodsFor: 'public' stamp: 'RPH 2/14/2023 11:16:17'!
+initPort: aPortNumber backlogSize: aBacklogSize
+	port _ aPortNumber.
+	backlogSize _ aBacklogSize.
+	self setupProcess! !
+
+!SmallMudSocketListener methodsFor: 'public' stamp: 'RPH 2/14/2023 11:20:52'!
+isValid
+	^listenProcess notNil! !
+
+!SmallMudSocketListener methodsFor: 'private' stamp: 'RPH 2/14/2023 11:19:37'!
+listenLoop
+	|connection|
+	socket _ Socket newTCP.
+	socket listenOn: port backlogSize: backlogSize.
+	
+	[
+		socket isValid ifFalse: [
+				socket destroy.
+				10 milliSeconds asDelay wait.
+				^self listenLoop].
+		connection _ socket waitForAcceptFor: 10 ifTimedOut: [nil].
+		(connection notNil and:[connection isConnected]) ifTrue: [
+			self triggerEvent: #acceptConnection with: connection.
+			self changed: self].
+		connection _ nil.
+	] repeat! !
+
+!SmallMudSocketListener methodsFor: 'private' stamp: 'RPH 2/14/2023 11:17:08'!
+setupProcess
+	listenProcess ifNotNil: [^false].
+	listenProcess _ [self listenLoop] newProcess.
+	listenProcess name: 'SmallMudSocketListener'.
+	listenProcess priority: Processor highIOPriority.
+	listenProcess resume.! !
+
+!SmallMudSocketListener class methodsFor: 'as yet unclassified' stamp: 'RPH 2/14/2023 11:21:19'!
+port: aPortNumber backlogSize: aBacklogSize.
+	^self new initPort: aPortNumber backlogSize: aBacklogSize! !
 
 !AnsiCode methodsFor: 'as yet unclassified' stamp: 'RPH 2/14/2023 10:23:15'!
 code
