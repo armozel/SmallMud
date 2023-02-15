@@ -1,6 +1,6 @@
-'From Cuis 6.0 [latest update: #5608] on 14 February 2023 at 5:22:55 pm'!
+'From Cuis 6.0 [latest update: #5608] on 14 February 2023 at 7:59:17 pm'!
 'Description '!
-!provides: 'SmallMud' 1 8!
+!provides: 'SmallMud' 1 9!
 SystemOrganization addCategory: 'SmallMud-Core'!
 SystemOrganization addCategory: 'SmallMud-Network'!
 SystemOrganization addCategory: 'SmallMud-Utils'!
@@ -35,26 +35,6 @@ Object subclass: #SmallMudSocketListener
 	category: 'SmallMud-Network'!
 !classDefinition: 'SmallMudSocketListener class' category: 'SmallMud-Network'!
 SmallMudSocketListener class
-	instanceVariableNames: ''!
-
-!classDefinition: #AnsiCode category: 'SmallMud-Utils'!
-Object subclass: #AnsiCode
-	instanceVariableNames: 'code name'
-	classVariableNames: ''
-	poolDictionaries: ''
-	category: 'SmallMud-Utils'!
-!classDefinition: 'AnsiCode class' category: 'SmallMud-Utils'!
-AnsiCode class
-	instanceVariableNames: ''!
-
-!classDefinition: #AnsiColor category: 'SmallMud-Utils'!
-AnsiCode subclass: #AnsiColor
-	instanceVariableNames: ''
-	classVariableNames: ''
-	poolDictionaries: ''
-	category: 'SmallMud-Utils'!
-!classDefinition: 'AnsiColor class' category: 'SmallMud-Utils'!
-AnsiColor class
 	instanceVariableNames: ''!
 
 
@@ -100,7 +80,7 @@ initPort: aPortNumber
 onAcceptConnection: aSocket
 	accessSema critical: [connections addLast: (SocketStream on: aSocket)]! !
 
-!SmallMudServer methodsFor: 'as yet unclassified' stamp: 'RH 2/14/2023 17:15:57'!
+!SmallMudServer methodsFor: 'as yet unclassified' stamp: 'RH 2/14/2023 18:10:53'!
 processMessages
 	accessSema critical: [
 		connections do: [:c |
@@ -109,6 +89,7 @@ processMessages
 			(msg notNil and: [msg notEmpty]) 
 				ifTrue: [
 					Transcript show: 'Received message: ', msg asString.
+					
 					c sendCommand: 'ECHO: ', msg]
 		]
 	]! !
@@ -202,118 +183,3 @@ setupSocket
 !SmallMudSocketListener class methodsFor: 'as yet unclassified' stamp: 'RH 2/14/2023 17:16:55'!
 port: aPortNumber backlogSize: aBacklogSize acceptor: anObject
 	^self new initPort: aPortNumber backlogSize: aBacklogSize acceptor: anObject! !
-
-!AnsiCode methodsFor: 'as yet unclassified' stamp: 'RH 2/14/2023 17:17:17'!
-code
-	^code! !
-
-!AnsiCode methodsFor: 'as yet unclassified' stamp: 'RH 2/14/2023 17:17:23'!
-initCode: aNumber name: aString
-	code _ aNumber.
-	name _ aString! !
-
-!AnsiCode methodsFor: 'as yet unclassified' stamp: 'RH 2/14/2023 17:17:26'!
-name
-	^name! !
-
-!AnsiCode methodsFor: 'as yet unclassified' stamp: 'RH 2/14/2023 17:17:31'!
-toEscapedCode
-	code ifNil: [^nil].
-	^ Character escape asString, '[', code asString, 'm'! !
-
-!AnsiCode class methodsFor: 'as yet unclassified' stamp: 'RH 2/14/2023 17:16:59'!
-Bold
-	^self code: 1 name: 'bold'! !
-
-!AnsiCode class methodsFor: 'as yet unclassified' stamp: 'RH 2/14/2023 17:17:03'!
-Reset
-	^self code: 0 name: 'reset'! !
-
-!AnsiCode class methodsFor: 'as yet unclassified' stamp: 'RH 2/14/2023 17:17:06'!
-Reverse
-	^self code: 7 name: 'reverse'! !
-
-!AnsiCode class methodsFor: 'as yet unclassified' stamp: 'RH 2/14/2023 17:17:09'!
-Underline
-	^self code: 4 name: 'underline'! !
-
-!AnsiCode class methodsFor: 'as yet unclassified' stamp: 'RH 2/14/2023 17:17:13'!
-code: aNumber name: aString
-	^self new initCode: aNumber name: aString! !
-
-!AnsiColor methodsFor: 'as yet unclassified' stamp: 'RH 2/14/2023 17:17:41'!
-toBright
-	code ifNil: [^nil].
-	^ Character escape asString, '[', code asString, ';1m'! !
-
-!AnsiColor methodsFor: 'as yet unclassified' stamp: 'RH 2/14/2023 17:17:45'!
-toPlain
-	^super toEscapedCode! !
-
-!AnsiColor class methodsFor: 'foreground colors' stamp: 'RH 2/14/2023 17:22:03'!
-BlackFg
-	^self code: 30 name: 'black'! !
-
-!AnsiColor class methodsFor: 'foreground colors' stamp: 'RH 2/14/2023 17:22:10'!
-BlueFg
-	^self code: 34 name: 'blue'! !
-
-!AnsiColor class methodsFor: 'foreground colors' stamp: 'RH 2/14/2023 17:22:14'!
-CyanFg
-	^self code: 36 name: 'cyan'! !
-
-!AnsiColor class methodsFor: 'foreground colors' stamp: 'RH 2/14/2023 17:22:17'!
-GreenFg
-	^self code: 32 name: 'green'! !
-
-!AnsiColor class methodsFor: 'foreground colors' stamp: 'RH 2/14/2023 17:22:21'!
-MagentaFg
-	^self code: 35 name: 'magenta'! !
-
-!AnsiColor class methodsFor: 'foreground colors' stamp: 'RH 2/14/2023 17:22:25'!
-RedFg
-	^self code: 31 name: 'red'! !
-
-!AnsiColor class methodsFor: 'foreground colors' stamp: 'RH 2/14/2023 17:22:29'!
-WhiteFg
-	^self code: 37 name: 'white'! !
-
-!AnsiColor class methodsFor: 'foreground colors' stamp: 'RH 2/14/2023 17:22:33'!
-YellowFg
-	^self code: 33 name: 'yellow'! !
-
-!AnsiColor class methodsFor: 'background colors' stamp: 'RH 2/14/2023 17:17:51'!
-BlackBg
-	^self code: 40 name: 'black'! !
-
-!AnsiColor class methodsFor: 'background colors' stamp: 'RH 2/14/2023 17:17:55'!
-BlueBg
-	^self code: 44 name: 'blue'! !
-
-!AnsiColor class methodsFor: 'background colors' stamp: 'RH 2/14/2023 17:17:58'!
-CyanBg
-	^self code: 46 name: 'cyan'! !
-
-!AnsiColor class methodsFor: 'background colors' stamp: 'RH 2/14/2023 17:18:02'!
-GreenBg
-	^self code: 42 name: 'green'! !
-
-!AnsiColor class methodsFor: 'background colors' stamp: 'RH 2/14/2023 17:18:05'!
-MagentaBg
-	^self code: 45 name: 'magenta'! !
-
-!AnsiColor class methodsFor: 'background colors' stamp: 'RH 2/14/2023 17:18:09'!
-RedBg
-	^self code: 41 name: 'red'! !
-
-!AnsiColor class methodsFor: 'background colors' stamp: 'RH 2/14/2023 17:18:12'!
-WhiteBg
-	^self code: 47 name: 'white'! !
-
-!AnsiColor class methodsFor: 'background colors' stamp: 'RH 2/14/2023 17:18:15'!
-YellowBg
-	^self code: 43 name: 'yellow'! !
-
-!AnsiColor class methodsFor: 'as yet unclassified' stamp: 'RH 2/14/2023 17:22:37'!
-code: aNumber name: aString
-	^self new initCode: aNumber name: aString! !
